@@ -28,7 +28,7 @@ LATEXMK_COMMAND = "latexmk -pdf -interaction=nonstopmode -synctex=1 -verbose -f"
 SERVER_TARGET_DIR = '/tmp'
 
 # Sync forward loc_filepath to remote_filepath on server servername, minus
-# hidden subfolders.  Basically syntactic sugar for the command:
+# hidden subfolders.  Basically a wrapper for the command:
 #
 #     rsync -a -h --exclude=".[!.]*" --info=progress2 loc_filepath
 #     servername:remote_filepath
@@ -40,8 +40,8 @@ def sync_forward(loc_filepath, remote_filepath, servername):
     assert forward_sync.returncode == 0, "Forward rsync finished with nonzero exit code."
     return forward_sync.returncode
 
-# Sync back remote_filepath to loc_filepath, minus hidden subfolders.
-# Basically syntactic sugar for the command:
+# Sync back remote_filepath to loc_filepath, minus hidden subfolders and .tex files.
+# Basically a wrapper for the command:
 #
 #     rsync -a -h --exclude="(.[!.]*|*.tex)" --info=progress2
 #     servername:remote_filepath loc_filepath
