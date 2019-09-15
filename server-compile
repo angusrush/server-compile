@@ -1,0 +1,156 @@
+#!/usr/bin/python3
+#
+# server-compile compiles a latex document on a remote server to avoid frequent
+# compilation on a laptop.
+#
+# Copyright (C) 2018 Angus Rush
+#
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <https://www.gnu.org/licenses/>.
+
+import os
+import argparse as ap
+import subprocess as sp
+import sys
+import gzip as gz
+import re
+
+def multiple_replace(string, rep_dict):
+    pattern = re.compile("|".join([re.escape(k) for k in sorted(rep_dict,key=len,reverse=True)]), flags=re.DOTALL)
+    return pattern.sub(lambda x: rep_dict[x.group(0)], string)
+
+def sanitize_synctex(filename):
+    gzfile = filename + '.synctex.gz'
+    fin = gz.open(gzfile, "rt")
+    
+    replacements = {'/tmp':bottom_folders, '/./':'/'}
+    
+    newlines = []
+    for line in fin:
+        newlines.append(multiple_replace(line, replacements))
+    
+    fout = gz.open(gzfile, "wt")
+    for line in newlines:
+        fout.write(line)
+    
+    fin.close()
+    fout.close()
+
+LATEXMK_COMMAND = "latexmk -pdf -interaction=nonstopmode -synctex=1 -verbose -f"
+
+parser = ap.ArgumentParser(description="Compile file.tex on remote server")
+parser.add_argument(
+        metavar='/path/to/file.tex',
+        dest='filepath',
+        type=str,
+        help="Absolute path to file.tex to be compiled")
+
+parser.add_argument(
+        '--server',
+        metavar='server',
+        dest='servername',
+        type=str,
+        help="Name of server, e.g. angus-server.duckdns.org")
+
+# Parse command line arguments
+args = parser.parse_args()
+path = args.filepath
+server = args.servername
+
+# We will need a lot of folder information. For example, if
+# server-compile is called with argument
+#
+#    "/home/angus/latex/notes-public/category_theory/notes.tex"
+#
+# then the following variable assignments should occur.
+#
+# folder         = "/home/angus/latex/notes-public/category_theory"
+# filename       = "notes.tex"
+# stem           = "notes"
+# extension      = ".tex"
+# bottom_folders = "/home/angus/latex/notes-public"
+# top_folder     = "category_theory"
+#
+
+folder, filename = os.path.split(path)
+stem, extension = os.path.splitext(filename)
+bottom_folders, top_folder = os.path.split(folder)
+
+if not os.path.isfile(path):
+    print(path + " does not exist.")
+    sys.exit(1)
+elif not os.path.isabs(path):
+    print(path + " is not absolute.")
+    sys.exit(1)
+elif not extension == '.tex':
+    print(path + " does not have .tex extension.")
+    sys.exit(1)
+
+print("Syncing " + folder + " to " + server + "...")
+forward_sync = sp.run("rsync -a -h --exclude=\".[!.]*\" --info=progress2 " \
+        + folder + " " + server + ":/tmp/", shell=True)
+
+if forward_sync.returncode != 0:
+    print("Forward rsync finished with nonzero exit code. Exiting.")
+    sys.exit(1)
+
+latexmk_command = LATEXMK_COMMAND \
+                + " "             \
+                + filename
+
+ssh_command     = "ssh "          \
+                + server          \
+                + " \""           \
+                + "cd /tmp/"      \
+                + top_folder      \
+                + " && "          \
+                + latexmk_command \
+                + "\""
+
+print("Success! Running command:")
+print("    " + latexmk_command)
+print(" ")
+print("--------------------------------------")
+print("----- latexmk output begins here -----")
+print("--------------------------------------")
+print(" ")
+latexmk_run = sp.run(ssh_command, shell=True)
+print(" ")
+print("--------------------------------------")
+print("------ latexmk output ends here ------")
+print("--------------------------------------")
+print(" ")
+
+if latexmk_run.returncode != 0:
+    print("Server-side latexmk run finished with nonzero exit code. \
+            Not syncing back.")
+    sys.exit(1)
+else:
+    print("latexmk run successful! Syncing back...")
+
+rsync_back = sp.run("rsync -a -h --exclude=\"(.[!.]*|*.tex)\" --info=progress2 " \
+        + server + ":/tmp/" + top_folder + "/ " + folder + "/", shell=True)
+
+if rsync_back.returncode != 0:
+    print("Rsync back failed for some reason.")
+    sys.exit(1)
+else:
+    print("Synced back succesfully!")
+
+print("Fiddling with " + stem + ".synctex.gz to make synctex work...")
+sanitize_synctex(stem)
+print("Done! Exiting :)")
+
+# In order to get synctex working, we have to make these replacements 
+# in the file 'stem.synctex.gz'
+
