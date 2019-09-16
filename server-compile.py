@@ -166,7 +166,7 @@ def main():
     sync_back(os.path.join(SERVER_TARGET_DIR, fp.top_folder), fp.bottom_folders, server)
 
     # Fix fp.stem.synctex.gz
-    synctex_gz_file = fp.stem + ".synctex.gz"
+    synctex_gz_file = os.path.join(fp.folder, fp.stem) + ".synctex.gz"
 
     print("Fiddling with " + synctex_gz_file + " to make synctex work...")
     sanitize_synctex(synctex_gz_file, fp.bottom_folders, SERVER_TARGET_DIR)
