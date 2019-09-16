@@ -96,13 +96,12 @@ def main():
     # Parse command line arguments
     parser = ap.ArgumentParser(description="Compile file.tex on remote server")
     parser.add_argument(
-            metavar='/path/to/file.tex',
+            metavar='file.tex',
             dest='filepath',
             type=str,
-            help="Absolute path to file.tex to be compiled")
+            help=".tex file to be compiled")
     
     parser.add_argument(
-            '--server',
             dest='servername',
             type=str,
             help="Name of server, e.g. angus-server.duckdns.org")
