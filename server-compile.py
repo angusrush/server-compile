@@ -103,13 +103,25 @@ def main():
     
     parser.add_argument(
             '--server',
-            metavar='server',
             dest='servername',
             type=str,
             help="Name of server, e.g. angus-server.duckdns.org")
+
+    #parser.add_argument(
+    #        '--server-target-dir',
+    #        dest='target_dir',
+    #        type=str,
+    #        nargs='?',
+    #        help="Path to sync to on server. Defaults to /tmp.")
     
     args = parser.parse_args()
-    fp = Filepath_info(args.filepath)
+    if os.path.exists(args.filepath):
+         fp = Filepath_info(os.path.abspath(args.filepath))
+    else:
+        print("That's not a path!")
+        sys.exit(1)
+        
+
     server = args.servername
 
     # Sync fp.folder forward to server:SERVER_TARGET_DIR
