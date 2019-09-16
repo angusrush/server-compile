@@ -54,7 +54,7 @@ def sync_back(remote_filepath, loc_filepath, servername):
     return rsync_back.returncode
 
 # Synctex files break when you move them. This function fixes the synctex file
-# after copying it to the local folder by replacing all instances of
+# gzfile after copying it to the local folder by replacing all instances of
 # SERVER_TARGET_DIR with current_directory, then making sure all the paths are
 # still valid by getting rid of things like /./ and //
 
